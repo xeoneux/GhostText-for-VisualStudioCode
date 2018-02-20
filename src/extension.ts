@@ -138,16 +138,15 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(disposable);
 
   httpStatusServer = http.createServer((req, res) => {
-    const wsServer = new ws.Server({ port: 8080 });
-    wsServer.on("connection", (socket: ws) => {
-      const response = JSON.stringify({
-        ProtocolVersion: 1,
-        WebSocketPort: wsServer.options.port,
-      });
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(response);
-      return new OnMessage(socket);
+    const wsServer = new ws.Server({ server: httpStatusServer });
+    wsServer.on("connection", (socket: ws) => new OnMessage(socket));
+
+    const response = JSON.stringify({
+      ProtocolVersion: 1,
+      WebSocketPort: httpStatusServer.address().port,
     });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(response);
   });
 
   return httpStatusServer.listen(4001);
