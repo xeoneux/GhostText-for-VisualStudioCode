@@ -12,18 +12,16 @@ class OnMessage {
   private document?: vscode.TextDocument;
   private editor?: vscode.TextEditor;
   private editorTitle?: string;
-  private onTextCallBack: (text: string) => void;
   private remoteChangedText?: string;
-  private webSocketConnection: ws;
+  private socket: ws;
 
-  constructor(webSocketConnection: ws) {
-    this.webSocketConnection = webSocketConnection;
+  constructor(socket: ws) {
     this.closed = false;
+    this.socket = socket;
     this.disposables = [];
-    this.onTextCallBack = (text: string) => this.onMessage(text);
 
-    this.webSocketConnection.on("text", this.onTextCallBack);
-    this.webSocketConnection.on("close", this.doCleanup);
+    this.socket.on("text", this.onMessage);
+    this.socket.on("close", this.doCleanup);
   }
 
   private async onMessage(text: string) {
@@ -49,7 +47,7 @@ class OnMessage {
                     (doc: vscode.TextDocument) => {
                       if (doc === this.document) {
                         this.closed = true;
-                        this.webSocketConnection.close();
+                        this.socket.close();
                         this.doCleanup();
                       }
                     },
@@ -69,11 +67,10 @@ class OnMessage {
                             title: this.editorTitle,
                           });
 
-                          // empty doc change event fires before close. Work around race.
+                          // Empty doc change event fires before close.
+                          // Work around race.
                           return setTimeout(
-                            () =>
-                              this.closed ||
-                              this.webSocketConnection.send(change),
+                            () => this.closed || this.socket.send(change),
                             50,
                           );
                         }
@@ -119,8 +116,7 @@ let httpStatusServer: http.Server;
 export function activate(context: vscode.ExtensionContext) {
   // Use the console to output diagnostic information (console.log) and errors (console.error)
   // This line of code will only be executed once when your extension is activated
-  // tslint:disable-next-line:no-console
-  console.log('Congratulations, your extension "ghosttext" is now active!');
+  // console.log('Congratulations, your extension "ghosttext" is now active!');
 
   // The command has been defined in the package.json file
   // Now provide the implementation of the command with  registerCommand
@@ -146,7 +142,7 @@ export function activate(context: vscode.ExtensionContext) {
       WebSocketPort: httpStatusServer.address().port,
     });
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(response);
+    return res.end(response);
   });
 
   return httpStatusServer.listen(4001);
